@@ -19,7 +19,8 @@ typedef struct {
 
 typedef struct node_t {
     Item item;
-    struct node_t* next;
+    struct node_t* next; //다음 노드
+    struct node_t* prev; //이전 노드
     // 필드 추가 가능
 } Node;
 
