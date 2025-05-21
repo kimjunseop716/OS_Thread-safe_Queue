@@ -91,5 +91,28 @@ int main(void) {
 	// 진짜로 필요한 코드
 	// total_average_response_time = total_response_time / n_cleint;
 	// printf("total average response time = ....
+
+	//nalloc(), nfree(), nclone() 테스트
+	//nalloc()
+	Item t_item = requests[1].item;
+	Node* node = nalloc(t_item);	//Node 생성
+	if (node == NULL) return 0;
+	cout << "node 생성" << endl;
+	cout << "node->item = (" << node->item.key << ", " << node->item.value << ")" << endl;
+
+	//nfree(), nclone()
+	Node* cl_node = nclone(node);
+	if (cl_node == NULL) { nfree(node); return 0; }
+	cout << "node 복제" << endl;
+	cout << "cl_node->item = (" << cl_node->item.key << ", " << cl_node->item.value << ")" << endl;
+	nfree(node); //원본 Node 해제 후 복제 Node 변조여부 확인
+	cout << "node 해제" << endl;
+	cout << "node->item = (" << node->item.key << ", " << node->item.value << ")" << endl;
+	cout << "cl_node->item = (" << cl_node->item.key << ", " << cl_node->item.value << ")" << endl;
+	nfree(cl_node); //복제 Node 해제
+	cout << "cl_node 해제" << endl;
+	cout << "node->item = (" << node->item.key << ", " << node->item.value << ")" << endl;
+	cout << "cl_node->item = (" << cl_node->item.key << ", " << cl_node->item.value << ")" << endl;
+
 	return 0;
 }

@@ -14,17 +14,32 @@ void release(Queue* queue) {
 
 Node* nalloc(Item item) {
 	// Node 생성, item으로 초기화
-	return NULL;
+	Node* node = (Node*)malloc(sizeof(Node));
+	if (node == NULL) {
+		return NULL;	// Node 생성 실패
+	}
+	node->item = item;
+	node->next = NULL;
+	node->prev = NULL;
+	return node;
 }
 
 
 void nfree(Node* node) {
+	free(node);
 	return;
 }
 
 
 Node* nclone(Node* node) {
-	return NULL;
+	Node* new_node = nalloc(node->item); //Node 생성
+	if (new_node == NULL) {
+		return NULL;	//Node 생성 실패
+	}
+	new_node->next = node->next;	//node가 가르키는 next 주소
+	new_node->prev = node->prev;	//node가 가르키는 prev 주소
+
+	return new_node;
 }
 
 
