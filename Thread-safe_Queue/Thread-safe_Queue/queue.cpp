@@ -2,12 +2,18 @@
 #include "queue.h"
 
 
-Queue* init(void) {
-	return NULL;
+Queue* init(void) {		//Queue 积己
+	Queue* queue = (Queue*)malloc(sizeof(Queue));
+	if (queue == NULL) return NULL;		//Queue 积己 角菩
+	queue->head = NULL;
+	queue->tail = NULL;
+	queue->size = 0;
+	return queue;
 }
 
 
-void release(Queue* queue) {
+void release(Queue* queue) {	//Queue 秦力
+	free(queue);
 	return;
 }
 
