@@ -34,9 +34,11 @@ void client_func(Queue* queue, Request requests[], int n_request) {
 	for (int i = 0; i < n_request; i++) {
 		if (requests[i].op == GET) {
 			reply = dequeue(queue);
+			cout << "dequeue reply.item.key: " << reply.item.key << endl;	//반환된 item.key값 확인 
 		}
 		else { // SET
 			reply = enqueue(queue, requests[i].item);
+			cout << "enqueue reply.item.key: " << reply.item.key << endl;
 		}
 
 		if (reply.success) {
@@ -51,7 +53,7 @@ void client_func(Queue* queue, Request requests[], int n_request) {
 			// noop
 		}
 	}
-
+	
 	// 진짜로 필요한 건 지연시간을 측정하는 코드
 	//
 	// elapsed_time = finish_time - start_time;
@@ -76,7 +78,7 @@ int main(void) {
 	}
 
 	Queue* queue = init();
-	//if (queue == NULL) return 0;
+	if (queue == NULL) return 0;
 
 	// 일단 한 개 뿐인데, 그래도 multi client라고 가정하기
 	thread client = thread(client_func, queue, requests, REQUEST_PER_CLINET);
