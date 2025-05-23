@@ -1,5 +1,8 @@
 #ifndef _QTYPE_H  // header guard
 #define _QTYPE_H
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 
 // ==========이 파일은 수정 가능==========
 
@@ -28,7 +31,9 @@ typedef struct {
     Node* head;
     Node* tail;
     // 필드 추가 가능
-    int size;
+    std::atomic<int> size;
+    std::mutex mtx;
+    std::condition_variable cv;
 } Queue;
 
 // 이후 자유롭게 추가/수정: 새로운 자료형 정의 등

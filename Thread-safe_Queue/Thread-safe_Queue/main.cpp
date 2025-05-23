@@ -2,6 +2,7 @@
 #include <thread>
 #include <atomic>
 #include "queue.h"
+#include <array>
 
 using namespace std;
 
@@ -9,7 +10,7 @@ using namespace std;
 // 주의: 아래 정의(Operation, Request)는 예시일 뿐
 // 큐의 Item은 void*이므로 얼마든지 달라질 수 있음
 
-#define REQUEST_PER_CLINET	10000
+#define REQUEST_PER_CLINET	100
 
 atomic<int> sum_key = 0;
 atomic<int> sum_value = 0;
@@ -26,7 +27,7 @@ typedef struct {
 	Item item;
 } Request;
 
-void client_func(Queue* queue, Request requests[], int n_request) {
+void client_func(Queue* queue, Request requests[], int n_request, int id) {
 	Reply reply = { false, 0 };
 
 	// start_time = .....
@@ -34,11 +35,11 @@ void client_func(Queue* queue, Request requests[], int n_request) {
 	for (int i = 0; i < n_request; i++) {
 		if (requests[i].op == GET) {
 			reply = dequeue(queue);
-			cout << "dequeue reply.item.key: " << reply.item.key << endl;	//반환된 item.key값 확인 
+			cout << "client " << id << " dequeue reply.item.key: " << reply.item.key << endl;	//반환된 item.key값 확인 
 		}
 		else { // SET
 			reply = enqueue(queue, requests[i].item);
-			cout << "enqueue reply.item.key: " << reply.item.key << endl;
+			cout << "client " << id << " enqueue reply.item.key: " << reply.item.key << endl;
 		}
 
 		if (reply.success) {
@@ -81,8 +82,15 @@ int main(void) {
 	if (queue == NULL) return 0;
 
 	// 일단 한 개 뿐인데, 그래도 multi client라고 가정하기
-	thread client = thread(client_func, queue, requests, REQUEST_PER_CLINET);
-	client.join();
+	
+	array<thread, 32> clients;
+	for (int i = 0; i < 32; i++)
+		clients[i] = thread(client_func, queue, requests, REQUEST_PER_CLINET, i);
+
+	for (int i = 0; i < 32; i++) {
+		clients[i].join();
+		cout << "cliends[" << i << "] 스레드 종료" << endl;
+	}
 
 	release(queue);
 
