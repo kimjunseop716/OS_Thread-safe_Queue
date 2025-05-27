@@ -56,7 +56,6 @@ Node* nclone(Node* node) {
 
 	return new_node;
 }
-mutex mtx;
 
 Reply enqueue(Queue* queue, Item item) {
 	unique_lock<mutex> lock(queue->mtx);
@@ -140,5 +139,60 @@ Reply dequeue(Queue* queue) {
 }
 
 Queue* range(Queue* queue, Key start, Key end) {
-	return NULL;
+	unique_lock<mutex> lock(queue->mtx);
+	if (queue->size <= 0 ||
+		start > queue->head->item.key ||
+		end < queue->tail->item.key) return NULL;	//키값의 범위가 head~tail이 아니면 NULL
+	if (start > end) {	//키값의 범위가 10~20 이 아닌 20~10이면 값을 서로 바꿈
+		Key tk = end;
+		end = start;
+		start = tk;
+	}
+	Queue* new_queue = init();
+	if (new_queue == NULL) return NULL;
+	Node* left = queue->head;
+	Node* right = queue->tail;
+	bool direction = true;
+	// left와 right를 교차하며 탐색
+	while (left->next != right && left != right) {
+		if (left->item.key <= end) break;
+		left = left->next;
+
+		if (right->item.key >= start) {
+			direction = false; 
+			break;
+		}
+		right = right->prev;
+	}
+	// 시작점 확정
+	Node* curr = direction ? left : right;
+	Node* tn = NULL;
+	// 복사
+	while (curr != NULL && start <= curr->item.key && curr->item.key <= end) {
+		Node* new_node = nclone(curr);
+
+		if (new_queue->head == NULL) {
+			new_queue->head = new_node;
+			new_queue->tail = new_node;
+			tn = new_node;
+		}
+		else if (direction) {
+			tn->next = new_node;
+			new_node->prev = tn;
+			tn = new_node;
+			new_queue->tail = tn;
+			new_queue->tail->next = NULL; 
+		}
+		else {
+			tn->prev = new_node;
+			new_node->next = tn;
+			tn = new_node;
+			new_queue->head = tn;
+			new_queue->head->prev = NULL; 
+		}
+
+		new_queue->size++;
+		curr = direction ? curr->next : curr->prev;
+	}
+	return new_queue;
 }

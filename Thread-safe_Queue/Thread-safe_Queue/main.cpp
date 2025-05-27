@@ -28,6 +28,7 @@ typedef struct {
 } Request;
 
 void client_func(Queue* queue, Request requests[], int n_request, int id) {
+	unique_lock<mutex> lock(queue->mtx);
 	Reply reply = { false, 0 };
 
 	// start_time = .....
@@ -54,6 +55,28 @@ void client_func(Queue* queue, Request requests[], int n_request, int id) {
 			// noop
 		}
 	}
+	if (id == 1) {
+		Queue* ran_q = range(queue, 90, 99);
+		Node* ran_n = ran_q->head;
+		if (ran_n == NULL) cout << "null" << endl;
+		else {
+			for (int i = 0; i < 10; i++) {
+				cout << "ran_n [" << i << "] : " << ran_n->item.key << endl;
+				ran_n = ran_n->next;
+			}
+		}
+
+		Node* a = queue->head;			//큐 복제 테스트
+		Node* b = ran_q->head;
+
+		while (a && b) {
+			cout << "queue node: " << a << ", ran_q node: " << b << endl;
+			a = a->next;
+			b = b->next;
+		}
+		release(ran_q);
+
+	}
 	
 	// 진짜로 필요한 건 지연시간을 측정하는 코드
 	//
@@ -69,14 +92,14 @@ int main(void) {
 
 	// 워크로드 생성(GETRANGE는 패스)
 	Request requests[REQUEST_PER_CLINET];
-	for (int i = 0; i < REQUEST_PER_CLINET / 2; i++) {
+	for (int i = 0; i < REQUEST_PER_CLINET; i++) {
 		requests[i].op = SET;
 		requests[i].item.key = i;
 		requests[i].item.value = (void*)(rand() % 1000000);
 	}
-	for (int i = REQUEST_PER_CLINET / 2; i < REQUEST_PER_CLINET; i++) {
+	/*for (int i = REQUEST_PER_CLINET / 2; i < REQUEST_PER_CLINET; i++) {
 		requests[i].op = GET;
-	}
+	}*/
 
 	Queue* queue = init();
 	if (queue == NULL) return 0;
@@ -91,8 +114,6 @@ int main(void) {
 		clients[i].join();
 		cout << "cliends[" << i << "] 스레드 종료" << endl;
 	}
-
-	release(queue);
 
 	// 의미 없는 작업
 	cout << "sum of returned keys = " << sum_key << endl;
@@ -124,5 +145,6 @@ int main(void) {
 	cout << "node->item = (" << node->item.key << ", " << node->item.value << ")" << endl;
 	cout << "cl_node->item = (" << cl_node->item.key << ", " << cl_node->item.value << ")" << endl;
 
+	release(queue);
 	return 0;
 }
