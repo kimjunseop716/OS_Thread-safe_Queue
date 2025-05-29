@@ -22,6 +22,7 @@ void release(Queue* queue) {	//Queue 해제
 			nfree(tmp);
 		}
 	}
+	queue->cv.notify_all();	//Queue 해제 전 대기 상태인 스레드가 남아 있다면 깨워주기
 	delete queue;
 	return;
 }
@@ -120,9 +121,9 @@ Reply enqueue(Queue* queue, Item item) {
 Reply dequeue(Queue* queue) {
 	unique_lock<mutex> lock(queue->mtx);
 	Reply reply = { false, NULL };
-	if (queue->size <= 0 && queue->head == NULL) return reply;	//Queue가 비어있음
-
+	if (queue->size <= 0 || queue->head == NULL) return reply;	//Queue가 비어있음
 	queue->cv.wait(lock, [&] { return queue->head != NULL; });
+	if (queue == NULL || queue->head == NULL) return reply;		//깨어난 후 큐가 해제됐다면 종료
 	Node* rm_node = queue->head;
 	Item rm_item = rm_node->item;
 	
