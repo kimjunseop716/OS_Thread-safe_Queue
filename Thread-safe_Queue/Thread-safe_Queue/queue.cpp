@@ -140,14 +140,14 @@ Reply dequeue(Queue* queue) {
 
 Queue* range(Queue* queue, Key start, Key end) {
 	unique_lock<mutex> lock(queue->mtx);
-	if (queue->size <= 0 ||
-		start > queue->head->item.key ||
-		end < queue->tail->item.key) return NULL;	//키값의 범위가 head~tail이 아니면 NULL
 	if (start > end) {	//키값의 범위가 10~20 이 아닌 20~10이면 값을 서로 바꿈
 		Key tk = end;
 		end = start;
 		start = tk;
 	}
+	if (queue->size <= 0 ||
+		start < queue->tail->item.key ||
+		end > queue->head->item.key) return NULL;	//키값의 범위가 head~tail이 아니면 NULL
 	Queue* new_queue = init();
 	if (new_queue == NULL) return NULL;
 	Node* left = queue->head;
