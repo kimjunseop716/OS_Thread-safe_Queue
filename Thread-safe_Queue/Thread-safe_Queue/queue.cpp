@@ -72,11 +72,25 @@ Reply enqueue(Queue* queue, Item item) {
 		Node* right = queue->tail;
 		
 		while (left != right && left->next != right) {
+			if (item.key == left->item.key || item.key == right->item.key) break;
 			if (item.key > left->item.key) break;
-			if (item.key <= right->item.key) break;
+			if (item.key < right->item.key) break;
 
 			left = left->next;		//head에서 오른쪽 방향으로 탐색
 			right = right->prev;	//tail에서 왼쪽 방향으로 탐색
+		}
+
+		if (item.key == left->item.key) {
+			left->item.value = item.value;	//같은 key를 가진 노드가 있으면 value를 덮어씌움
+			reply.success = true;
+			reply.item = item;
+			return reply;
+		}
+		else if (item.key == right->item.key) {
+			right->item.value = item.value;
+			reply.success = true;
+			reply.item = item;
+			return reply;
 		}
 
 		// 삽입 위치 결정
