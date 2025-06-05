@@ -10,7 +10,7 @@ using namespace std;
 // 주의: 아래 정의(Operation, Request)는 예시일 뿐
 // 큐의 Item은 void*이므로 얼마든지 달라질 수 있음
 
-#define REQUEST_PER_CLINET	100
+#define REQUEST_PER_CLINET	10000
 
 atomic<int> sum_key = 0;
 atomic<int> sum_value = 0;
@@ -28,19 +28,21 @@ typedef struct {
 } Request;
 
 void client_func(Queue* queue, Request requests[], int n_request, int id) {
-	unique_lock<mutex> lock(queue->mtx);
 	Reply reply = { false, 0 };
-
 	// start_time = .....
 
 	for (int i = 0; i < n_request; i++) {
 		if (requests[i].op == GET) {
 			reply = dequeue(queue);
-			cout << "client " << id << " dequeue reply.item.key: " << reply.item.key << endl;	//반환된 item.key값 확인 
+			//cout << "client " << id << " dequeue reply.item.key: " << reply.item.key << endl;	//반환된 item.key값 확인 
+			if (reply.item.value != NULL) { 
+				free(reply.item.value);
+				reply.item.value = NULL;
+			}
 		}
 		else { // SET
 			reply = enqueue(queue, requests[i].item);
-			cout << "client " << id << " enqueue reply.item.key: " << reply.item.key << endl;
+			//cout << "client " << id << " enqueue reply.item.key: " << reply.item.key << endl;
 		}
 
 		if (reply.success) {
@@ -55,29 +57,6 @@ void client_func(Queue* queue, Request requests[], int n_request, int id) {
 			// noop
 		}
 	}
-	if (id == 1) {
-		Queue* ran_q = range(queue, 90, 99);
-		Node* ran_n = ran_q->head;
-		if (ran_n == NULL) cout << "null" << endl;
-		else {
-			for (int i = 0; i < 10; i++) {
-				cout << "ran_n [" << i << "] : " << ran_n->item.key << endl;
-				ran_n = ran_n->next;
-			}
-		}
-
-		Node* a = queue->head;			//큐 복제 테스트
-		Node* b = ran_q->head;
-
-		while (a && b) {
-			cout << "queue node: " << a << ", ran_q node: " << b << endl;
-			a = a->next;
-			b = b->next;
-		}
-		release(ran_q);
-
-	}
-	
 	// 진짜로 필요한 건 지연시간을 측정하는 코드
 	//
 	// elapsed_time = finish_time - start_time;
@@ -91,15 +70,20 @@ int main(void) {
 	srand((unsigned int)time(NULL));
 
 	// 워크로드 생성(GETRANGE는 패스)
-	Request requests[REQUEST_PER_CLINET];
-	for (int i = 0; i < REQUEST_PER_CLINET; i++) {
+	//Request requests[REQUEST_PER_CLINET];
+	Request* requests = new Request[REQUEST_PER_CLINET];
+	for (int i = 0; i < REQUEST_PER_CLINET / 2; i++) {
+		//cout << "SET" << endl;
 		requests[i].op = SET;
 		requests[i].item.key = i;
-		requests[i].item.value = (void*)(rand() % 1000000);
+		//int size = rand() % 1000000;
+		requests[i].item.value = (void*)"abcdefg";
+		requests[i].item.value_size = sizeof("abcdefg");
 	}
-	/*for (int i = REQUEST_PER_CLINET / 2; i < REQUEST_PER_CLINET; i++) {
+	for (int i = REQUEST_PER_CLINET / 2; i < REQUEST_PER_CLINET; i++) {
+		//cout << "GET" << endl;
 		requests[i].op = GET;
-	}*/
+	}
 
 	Queue* queue = init();
 	if (queue == NULL) return 0;
@@ -129,7 +113,7 @@ int main(void) {
 	Node* node = nalloc(t_item);	//Node 생성
 	if (node == NULL) return 0;
 	cout << "node 생성" << endl;
-	cout << "node->item = (" << node->item.key << ", " << node->item.value << ")" << endl;
+	cout << "node->item = (" << node->item.key << ", " << node->item.value << ", " << node->item.value_size << ")" << endl;
 
 	//nfree(), nclone()
 	Node* cl_node = nclone(node);
@@ -145,6 +129,70 @@ int main(void) {
 	cout << "node->item = (" << node->item.key << ", " << node->item.value << ")" << endl;
 	cout << "cl_node->item = (" << cl_node->item.key << ", " << cl_node->item.value << ")" << endl;
 
+	/*Queue* ran_q = range(queue, 0, 0);
+	if (ran_q == NULL) cout << "queue null" << endl;
+	Reply ran_ply = dequeue(ran_q);
+	cout << ran_ply.item.key << endl;
+	Node* ran_n = ran_q->head;
+	if (ran_n == NULL) cout << "node null" << endl;
+	else {
+		for (int i = 0; i < 10; i++) {
+			cout << "ran_n [" << i << "] : " << ran_n->item.key << endl;
+			ran_n = ran_n->next;
+		}
+	}*/
+
+	Queue* nqueue = init();
+	Item nitem;
+	Reply nply;
+	for (int i = 0; i < 10; i++) {
+		nitem.key = i;
+		nitem.value = (void*)"ssss";
+		nitem.value_size = sizeof("ssss");
+		nply = enqueue(nqueue, nitem);
+		cout << nply.item.key << ", " << (char*)nply.item.value << endl;
+	}
+
+	Node* tn = nqueue->head;
+	for (int i = 0; i < 10; i++) {
+		cout << i+1 << "번째 노드 = (" << tn->item.key << ", " << (char*)tn->item.value << ")" << endl;
+		tn = tn->next;
+	}
+	cout << "" << endl;
+	char* nstr = _strdup("abcd");
+	nitem = { 5, (void*)nstr, (int)strlen(nstr)+1};
+	nply = enqueue(nqueue, nitem);
+	tn = nqueue->head;
+	Node* t_rm = NULL;
+	for (int i = 0; i < 10; i++) {
+		cout << i + 1 << "번째 노드 = (" << tn->item.key << ", " << (char*)tn->item.value << ")" << endl;
+		if (tn->item.key == 5) t_rm = tn;	//nqueue의 5번 key 노드를 가리킴
+		tn = tn->next;
+	}
+	cout << "range 전" << endl;
+	Queue* rque = range(nqueue, 5, 9);
+	cout << "range 후" << endl;
+	tn = rque->head;
+	for (int i = 0; i < 5; i++) {
+		cout << i + 1 << "번째 노드 = (" << tn->item.key << ", " << (char*)tn->item.value << ")" << endl;
+		tn = tn->next;
+	}
+	cout << "rque->size: " << rque->size << endl;
+	cout << "" << endl;
+	free(nstr);
+	if (t_rm->item.value != NULL) {
+		free(t_rm->item.value);
+		t_rm->item.value = NULL;
+		cout << "nqueue의 5번 key 삭제" << endl;
+	}
+	tn = rque->head;
+	for (int i = 0; i < 5; i++) {
+		cout << i + 1 << "번째 노드 = (" << tn->item.key << ", " << (char*)tn->item.value << ")" << endl;
+		tn = tn->next;
+	}
+	
+	release(nqueue);
+	release(rque);
 	release(queue);
 	return 0;
 }

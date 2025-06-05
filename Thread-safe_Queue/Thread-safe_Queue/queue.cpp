@@ -1,7 +1,11 @@
 #include <iostream>
 #include "queue.h"
-
+#define MAX_KEY 10000000
+#define MAX_BYTE 1024
 using namespace std;
+
+bool key_check(Key key);	//key, item 크기 Parameter 검사 (불만족시 false) 
+bool item_check(Item item);
 
 Queue* init(void) {		//Queue 초기화
 	Queue* queue = new Queue();
@@ -19,6 +23,7 @@ void release(Queue* queue) {	//Queue 해제
 		while (queue->head) {	//Queue에 남아있는 모든 Node 해제
 			Node* tmp = queue->head;
 			queue->head = (queue->head)->next;
+			if(tmp->item.value != NULL) free(tmp->item.value);	//Item.value 해제
 			nfree(tmp);
 		}
 	}
@@ -29,12 +34,23 @@ void release(Queue* queue) {	//Queue 해제
 
 
 Node* nalloc(Item item) {
+	//item 복사
+	if (item.value == NULL || item.value_size <= 0) return NULL; // 잘못된 Item
+	else if (!key_check(item.key) || !item_check(item)) return NULL;	//잘못된 Parameter
+	Item new_item;
+	new_item.key = item.key;
+	new_item.value_size = item.value_size;
+	new_item.value = malloc(new_item.value_size);
+	if (new_item.value == NULL) return NULL;	//item 복제 실패
+	memcpy(new_item.value, item.value, new_item.value_size);
+
 	// Node 생성, item으로 초기화
 	Node* node = (Node*)malloc(sizeof(Node));
 	if (node == NULL) {
+		free(new_item.value);
 		return NULL;	// Node 생성 실패
 	}
-	node->item = item;
+	node->item = new_item;
 	node->next = NULL;
 	node->prev = NULL;
 	return node;
@@ -42,7 +58,9 @@ Node* nalloc(Item item) {
 
 
 void nfree(Node* node) {
-	free(node);
+	if (node != NULL) {
+		free(node);
+	}
 	return;
 }
 
@@ -61,6 +79,8 @@ Node* nclone(Node* node) {
 Reply enqueue(Queue* queue, Item item) {
 	unique_lock<mutex> lock(queue->mtx);
 	Reply reply = { false, NULL };
+	if (item.value == NULL || item.value_size <= 0) return reply; // 잘못된 Item
+	else if (!key_check(item.key) || !item_check(item)) return reply;	//잘못된 Parameter
 	Node* new_node = nalloc(item);
 	if (new_node == NULL) return reply;	//Node 생성 실패
 	if (queue->head == NULL) {
@@ -80,14 +100,26 @@ Reply enqueue(Queue* queue, Item item) {
 			right = right->prev;	//tail에서 왼쪽 방향으로 탐색
 		}
 
-		if (item.key == left->item.key) {
-			left->item.value = item.value;	//같은 key를 가진 노드가 있으면 value를 덮어씌움
+		if (item.key == left->item.key) {	//같은 key를 가진 노드가 있으면 value를 덮어씌움
+			void *temp = malloc(item.value_size);
+			if (temp == NULL) return reply;
+			memcpy(temp, item.value, item.value_size);
+			free(left->item.value);							//기존 영역 해제하고 item을 할당
+			left->item.value_size = item.value_size;
+			left->item.value = temp;
+			
 			reply.success = true;
 			reply.item = item;
 			return reply;
 		}
 		else if (item.key == right->item.key) {
-			right->item.value = item.value;
+			void* temp = malloc(item.value_size);
+			if (temp == NULL) return reply;
+			memcpy(temp, item.value, item.value_size);
+			free(right->item.value);
+			right->item.value_size = item.value_size;
+			right->item.value = temp;
+
 			reply.success = true;
 			reply.item = item;
 			return reply;
@@ -140,7 +172,7 @@ Reply dequeue(Queue* queue) {
 	if (queue == NULL || queue->head == NULL) return reply;		//깨어난 후 큐가 해제됐다면 종료
 	Node* rm_node = queue->head;
 	Item rm_item = rm_node->item;
-	
+
 	queue->head = rm_node->next;	//기존 head 노드의 다음 노드로 head 변경
 	if (queue->head == NULL) queue->tail = NULL;	//Queue가 비게 된다면 tail도 NULL로 변경
 	else queue->head->prev = NULL;		//rm_node와 연결된 prev를 NULL로 변경
@@ -155,12 +187,13 @@ Reply dequeue(Queue* queue) {
 
 Queue* range(Queue* queue, Key start, Key end) {
 	unique_lock<mutex> lock(queue->mtx);
+	if (!key_check(start) || !key_check(end)) return NULL;	//잘못된 Parameter
 	if (start > end) {	//키값의 범위가 10~20 이 아닌 20~10이면 값을 서로 바꿈
 		Key tk = end;
 		end = start;
 		start = tk;
 	}
-	if (queue->size <= 0 ||
+	else if (queue->size <= 0 ||
 		start < queue->tail->item.key ||
 		end > queue->head->item.key) return NULL;	//키값의 범위가 head~tail이 아니면 NULL
 	Queue* new_queue = init();
@@ -187,6 +220,8 @@ Queue* range(Queue* queue, Key start, Key end) {
 		Node* new_node = nclone(curr);
 
 		if (new_queue->head == NULL) {
+			new_node->next = NULL;
+			new_node->prev = NULL;
 			new_queue->head = new_node;
 			new_queue->tail = new_node;
 			tn = new_node;
@@ -210,4 +245,12 @@ Queue* range(Queue* queue, Key start, Key end) {
 		curr = direction ? curr->next : curr->prev;
 	}
 	return new_queue;
+}
+
+bool key_check(Key key) {
+	return (0 <= key && key < MAX_KEY);
+}
+bool item_check(Item item) {
+	int size = item.value_size;
+	return (1 <= size && size <= MAX_BYTE);
 }
